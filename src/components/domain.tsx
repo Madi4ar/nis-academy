@@ -26,6 +26,7 @@ export function PackageCard({ pkg }: { pkg: Package }) {
           {pkg.popular && <Badge tone="primary"><Star aria-hidden />Популярный</Badge>}
         </div>
         <p className="mb-4 line-clamp-2 text-sm text-fg-muted">{pkg.description}</p>
+        {pkg.pickSubjects && <p className="mb-2 text-sm font-medium text-primary">Выберите {pkg.pickSubjects} из {pkg.subjectIds.length} предметов</p>}
         <div className="mb-4 flex flex-wrap gap-1.5">
           {pkg.subjectIds.map((s) => <Badge key={s} tone="outline">{subjectName(state, s)}</Badge>)}
         </div>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { CheckCircle2, CreditCard, RefreshCcw, RotateCcw, XCircle } from 'lucide-react'
+import { Check, CheckCircle2, CreditCard, RefreshCcw, RotateCcw, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAction, useSession, useStore } from '@/services/store'
 import { createOrder, payOrder, registerParent, saveChild, validateAllocation } from '@/services/mockApi'
@@ -8,7 +8,7 @@ import { childrenOf, publishedTeachers, quotaBalance, subjectName, teacherTeache
 import { AllocationEditor } from '@/components/AllocationEditor'
 import { DemoBadge, DemoNotice, EmptyState, FormField, PageHeader, QuotaBalanceView, StatusBadge } from '@/components/common'
 import { Badge, Button, Card, Checkbox, Input, Select } from '@/components/ui/primitives'
-import { cn, formatMoney, LANGUAGE_LABEL, lessonsWord } from '@/lib/utils'
+import { cn, formatMoney, LANGUAGE_LABEL, lessonsWord, subjectsWord } from '@/lib/utils'
 import type { Language } from '@/types'
 
 const STEPS = ['Конфигурация', 'Семья', 'Оферта и оплата', 'Результат']
@@ -37,6 +37,9 @@ export default function Checkout() {
     }
     return {}
   })
+  const [picked, setPicked] = useState<string[]>(() =>
+    pkg?.pickSubjects && renewFrom?.packageVersion.packageId === pkg.id ? renewFrom.items.map((i) => i.subjectId) : [],
+  )
   const [desiredTeacherId, setDesiredTeacherId] = useState(renewFrom?.desiredTeacherId ?? '')
   const [studentId, setStudentId] = useState(renewFrom?.studentId ?? '')
   const [newChild, setNewChild] = useState({ name: '', grade: grade, language: language as Language, birthYear: 2014 })
@@ -48,16 +51,29 @@ export default function Checkout() {
   const [orderId, setOrderId] = useState<string>()
   const [lastResult, setLastResult] = useState<'success' | 'fail'>()
 
+  const subjectIds = pkg?.pickSubjects ? picked : pkg?.subjectIds ?? []
   const teachers = useMemo(
-    () => (pkg ? publishedTeachers(state).filter((t) => pkg.subjectIds.some((s) => teacherTeaches(t, s, grade, language))) : []),
-    [state, pkg, grade, language],
+    () => publishedTeachers(state).filter((t) => subjectIds.some((s) => teacherTeaches(t, s, grade, language))),
+    [state, subjectIds, grade, language],
   )
 
   if (!pkg || pkg.status !== 'published') {
     return <div className="mx-auto max-w-lg px-4 py-20"><EmptyState title="Пакет недоступен для покупки" action={<Link to="/packages" className="text-primary hover:underline">В каталог</Link>} /></div>
   }
 
-  const items = pkg.subjectIds.map((s) => ({ subjectId: s, lessons: alloc[s] ?? 0 }))
+  const items = subjectIds.map((s) => ({ subjectId: s, lessons: alloc[s] ?? 0 }))
+  const pick = pkg.pickSubjects ?? 0
+
+  /** Выбор предмета в пакете «на выбор»: уроки сразу делятся поровну, затем их можно подвинуть вручную. */
+  const togglePick = (sid: string) => {
+    const next = picked.includes(sid) ? picked.filter((x) => x !== sid) : picked.length < pick ? [...picked, sid] : picked
+    if (next === picked) { toast.info(`Можно выбрать только ${subjectsWord(pick)}`, { description: 'Снимите выбор с одного из предметов, чтобы заменить его.' }); return }
+    setPicked(next)
+    const base = Math.floor(pkg.lessonsCount / Math.max(next.length, 1))
+    const rest = pkg.lessonsCount - base * next.length
+    setAlloc(Object.fromEntries(next.map((s, i) => [s, base + (i < rest ? 1 : 0)])))
+    setErrors({})
+  }
   const allocError = validateAllocation(pkg, items)
   const order = state.orders.find((o) => o.id === orderId)
 
@@ -158,13 +174,41 @@ export default function Checkout() {
                   </Select>
                 </FormField>
               </div>
-              <AllocationEditor
-                rows={pkg.subjectIds.map((s) => ({ id: s, name: subjectName(state, s), note: state.subjects.find((x) => x.id === s)?.tier === 'premium' ? 'Премиум-предмет' : undefined }))}
+              {pick > 0 && (
+                <fieldset>
+                  <legend className="sr-only">Выбор предметов</legend>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium">Выберите {subjectsWord(pick)}</p>
+                    <Badge tone={picked.length === pick ? 'success' : 'warning'} aria-live="polite" className="text-sm">Выбрано {picked.length} из {pick}</Badge>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {pkg.subjectIds.map((s) => {
+                      const on = picked.includes(s)
+                      const full = !on && picked.length >= pick
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          role="checkbox"
+                          aria-checked={on}
+                          onClick={() => togglePick(s)}
+                          className={cn('flex cursor-pointer items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface p-3 text-left text-sm font-medium hover:border-primary/50', on && 'border-primary bg-primary-soft/50 ring-1 ring-primary', full && 'opacity-50')}
+                        >
+                          <span className={cn('flex size-5 shrink-0 items-center justify-center rounded border border-border', on && 'border-primary bg-primary text-white')}>{on && <Check className="size-3.5" aria-hidden />}</span>
+                          {subjectName(state, s)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </fieldset>
+              )}
+              {(pick === 0 || picked.length > 0) && <AllocationEditor
+                rows={subjectIds.map((s) => ({ id: s, name: subjectName(state, s), min: pick ? 1 : 0, note: state.subjects.find((x) => x.id === s)?.tier === 'premium' ? 'Премиум-предмет' : undefined }))}
                 value={alloc}
                 total={pkg.lessonsCount}
                 onChange={(v) => { setAlloc(v); setErrors({}) }}
                 label={`Распределите ровно ${lessonsWord(pkg.lessonsCount)}`}
-              />
+              />}
               {errors.items && <p className="text-sm text-danger" role="alert">{errors.items}</p>}
               <FormField label="Желаемый преподаватель (необязательно)" htmlFor="co-teacher" hint="Пожелание учитывается модератором при подборе группы; замена возможна (правило требует согласования).">
                 <Select id="co-teacher" value={desiredTeacherId} onChange={(e) => setDesiredTeacherId(e.target.value)}>
@@ -315,7 +359,8 @@ export default function Checkout() {
             <p className="mt-1 font-medium">{pkg.title}</p>
             <p className="text-xs text-fg-muted">v{pkg.version} · {pkg.lessonDuration} мин · до {pkg.groupLimit} в группе</p>
             <ul className="mt-4 space-y-1.5 text-sm">
-              {pkg.subjectIds.map((s) => (
+              {pick > 0 && !picked.length && <li className="text-fg-muted">Предметы ещё не выбраны</li>}
+              {subjectIds.map((s) => (
                 <li key={s} className="flex justify-between"><span className="text-fg-muted">{subjectName(state, s)}</span><span className="tabular font-medium">{alloc[s] ?? 0}</span></li>
               ))}
             </ul>

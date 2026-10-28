@@ -74,6 +74,8 @@ export interface Package {
   status: PackageStatus
   version: number
   popular?: boolean
+  /** Пакет «на выбор»: покупатель выбирает ровно столько предметов из subjectIds. */
+  pickSubjects?: number
 }
 
 /** Снимок условий пакета на момент покупки. */

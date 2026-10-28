@@ -79,6 +79,10 @@ export function plural(n: number, forms: [string, string, string]) {
   return forms[2]
 }
 
+export function subjectsWord(n: number) {
+  return `${n} ${plural(n, ['предмет', 'предмета', 'предметов'])}`
+}
+
 export function lessonsWord(n: number) {
   return `${n} ${plural(n, ['урок', 'урока', 'уроков'])}`
 }

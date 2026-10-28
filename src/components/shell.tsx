@@ -19,7 +19,7 @@ export function Logo({ to = '/' }: { to?: string }) {
       <span className="flex size-8 items-center justify-center rounded-[var(--radius-sm)] bg-gradient-to-br from-primary to-secondary text-white">
         <GraduationCap className="size-5" aria-hidden />
       </span>
-      <span className="text-lg">NIS <span className="text-primary">Academy</span></span>
+      <span className="whitespace-nowrap text-lg">NIS <span className="text-primary">Academy</span></span>
     </Link>
   )
 }

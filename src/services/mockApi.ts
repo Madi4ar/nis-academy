@@ -4,7 +4,7 @@ import type {
   AppState, Attendance, Group, Language, Lesson, Order, OrderItem, Package, Role, StudentProfile, TeacherProfile,
 } from '@/types'
 import { snapshot } from '@/mocks/seed'
-import { uid } from '@/lib/utils'
+import { subjectsWord, uid } from '@/lib/utils'
 import {
   isOrderExpired, lessonAudience, lessonEnd, lessonParticipants, packageById, parentUserOfStudent, quotaBalance,
   studentById, subjectName, teacherById, teacherTeaches,
@@ -98,6 +98,11 @@ export interface OrderDraft {
 export function validateAllocation(pkg: Package, items: OrderItem[]) {
   const sum = items.reduce((a, i) => a + i.lessons, 0)
   if (items.some((i) => !pkg.subjectIds.includes(i.subjectId))) return 'Предмет не входит в пакет'
+  if (pkg.pickSubjects) {
+    const chosen = new Set(items.map((i) => i.subjectId)).size
+    if (chosen !== pkg.pickSubjects) return `Выберите ровно ${subjectsWord(pkg.pickSubjects)}: выбрано ${chosen}`
+    if (items.some((i) => i.lessons < 1)) return 'У каждого выбранного предмета должен быть хотя бы 1 урок'
+  }
   if (items.some((i) => i.lessons < 0 || !Number.isInteger(i.lessons))) return 'Количество уроков должно быть целым неотрицательным'
   if (sum !== pkg.lessonsCount) return `Нужно распределить ровно ${pkg.lessonsCount}: назначено ${sum}`
   return null
@@ -114,7 +119,9 @@ export function createOrder(s: AppState, d: OrderDraft) {
   const id = uid('o')
   const number = `ЗК-${1000 + s.orders.length + 1}`
   const order: Order = {
-    id, number, parentId: d.parentId, studentId: d.studentId, packageVersion: snapshot(pkg),
+    id, number, parentId: d.parentId, studentId: d.studentId,
+    // В пакете «на выбор» в заказ попадают только выбранные предметы — перераспределение тоже только между ними.
+    packageVersion: { ...snapshot(pkg), subjectIds: pkg.pickSubjects ? d.items.map((i) => i.subjectId) : [...pkg.subjectIds] },
     items: d.items.filter((i) => i.lessons > 0), grade: d.grade, language: d.language, desiredTeacherId: d.desiredTeacherId,
     status: 'unpaid', total: pkg.price, createdAt: nowIso(), renewedFromId: d.renewedFromId,
     offer: { acceptedAt: nowIso(), offerVersion: '2026-10-20' },
@@ -522,9 +529,11 @@ export function savePackage(s: AppState, p: Package) {
   if (p.price <= 0) throw new OpError('Укажите цену', 'price')
   if (p.groupLimit < 2 || p.groupLimit > 30) throw new OpError('Лимит группы 2–30', 'groupLimit')
   if (p.grades[0] > p.grades[1]) throw new OpError('Диапазон классов указан неверно', 'grades')
+  if (p.pickSubjects && (p.pickSubjects < 1 || p.pickSubjects > p.subjectIds.length)) throw new OpError('Предметов на выбор не может быть больше, чем предметов в пакете', 'pickSubjects')
+  if (p.pickSubjects && p.lessonsCount < p.pickSubjects) throw new OpError('Уроков меньше, чем предметов на выбор', 'lessonsCount')
   const ex = s.packages.find((x) => x.id === p.id)
   if (ex) {
-    const commercial = ex.price !== p.price || ex.lessonsCount !== p.lessonsCount || ex.subjectIds.join() !== p.subjectIds.join()
+    const commercial = ex.price !== p.price || ex.lessonsCount !== p.lessonsCount || ex.subjectIds.join() !== p.subjectIds.join() || ex.pickSubjects !== p.pickSubjects
     Object.assign(ex, p, { version: commercial && ex.status === 'published' ? ex.version + 1 : ex.version })
     audit(s, 'package.update', `Package ${p.title}`, commercial && ex.status === 'published' ? `Новая версия v${ex.version}; купленные заказы сохраняют свои условия` : 'Изменены описательные поля')
     return ex.id

@@ -86,6 +86,9 @@ export default function ModeratorPackages() {
             <FormField label="Предметы" error={errors.subjectIds} required className="sm:col-span-2">
               <div className="flex flex-wrap gap-x-4 gap-y-2">{state.subjects.map((s) => <Checkbox key={s.id} checked={draft.subjectIds.includes(s.id)} onChange={() => setDraft({ ...draft, subjectIds: toggle(draft.subjectIds, s.id) })} label={`${s.name}${s.tier === 'premium' ? ' (премиум)' : ''}`} />)}</div>
             </FormField>
+            <FormField label="Предметов на выбор" htmlFor="pk-pick" error={errors.pickSubjects} hint="0 — все предметы пакета входят в заказ; иначе покупатель выбирает столько предметов." className="sm:col-span-2">
+              <Input id="pk-pick" type="number" min={0} max={draft.subjectIds.length} value={draft.pickSubjects ?? 0} onChange={(e) => setDraft({ ...draft, pickSubjects: +e.target.value || undefined })} aria-invalid={!!errors.pickSubjects} />
+            </FormField>
             <FormField label="Языки обучения" error={errors.languages} required className="sm:col-span-2">
               <div className="flex gap-4">{(['ru', 'kz'] as Language[]).map((l) => <Checkbox key={l} checked={draft.languages.includes(l)} onChange={() => setDraft({ ...draft, languages: toggle(draft.languages, l) })} label={LANGUAGE_LABEL[l]} />)}</div>
             </FormField>

@@ -5,7 +5,7 @@ import type {
 } from '@/types'
 import { addMinutes } from '@/lib/utils'
 
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 
 export const subjects: Subject[] = [
   { id: 'math', name: 'Математика', tier: 'standard' },
@@ -19,6 +19,12 @@ export const subjects: Subject[] = [
 ]
 
 const packages: Package[] = [
+  {
+    id: 'p7', title: '4 предмета на выбор', popular: true, pickSubjects: 4,
+    description: 'Соберите свой пакет: выберите любые 4 предмета — например, математику, физику, биологию и казахский язык.',
+    lessonsCount: 32, lessonDuration: 60, groupLimit: 8, subjectIds: ['math', 'physics', 'chemistry', 'biology', 'kazakh', 'russian'], grades: [5, 11],
+    languages: ['ru', 'kz'], price: 120000, validityDays: 90, status: 'published', version: 1,
+  },
   {
     id: 'p1', title: 'Старт: математика и русский', popular: true,
     description: 'Базовый пакет для 5–7 классов: закрываем пробелы и выстраиваем систему в двух ключевых предметах.',

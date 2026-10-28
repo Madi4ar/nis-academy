@@ -6,7 +6,7 @@ import { publishedTeachers, subjectName } from '@/services/selectors'
 import { PackageCard, TeacherCard } from '@/components/domain'
 import { EmptyState, FilterBar, PageHeader, SearchInput } from '@/components/common'
 import { Badge, Card, Select } from '@/components/ui/primitives'
-import { formatMoney, gradeRange, LANGUAGE_LABEL, lessonsWord } from '@/lib/utils'
+import { formatMoney, gradeRange, LANGUAGE_LABEL, lessonsWord, subjectsWord } from '@/lib/utils'
 
 export function Packages() {
   const { state } = useStore()
@@ -108,8 +108,12 @@ export function PackageDetail() {
             </dl>
           </Card>
           <Card className="p-6">
-            <h2 className="mb-3 text-lg font-semibold">Предметы пакета</h2>
-            <p className="mb-4 text-sm text-fg-muted">При покупке вы сами распределяете {lessonsWord(pkg.lessonsCount)} между этими предметами. Позже свободные уроки можно перераспределить.</p>
+            <h2 className="mb-3 text-lg font-semibold">{pkg.pickSubjects ? `Предметы на выбор — выберите ${subjectsWord(pkg.pickSubjects)}` : 'Предметы пакета'}</h2>
+            <p className="mb-4 text-sm text-fg-muted">
+              {pkg.pickSubjects
+                ? `При покупке вы выбираете ровно ${subjectsWord(pkg.pickSubjects)} из списка и распределяете между ними ${lessonsWord(pkg.lessonsCount)}. Позже свободные уроки можно перераспределить между выбранными предметами.`
+                : `При покупке вы сами распределяете ${lessonsWord(pkg.lessonsCount)} между этими предметами. Позже свободные уроки можно перераспределить.`}
+            </p>
             <div className="flex flex-wrap gap-2">
               {pkg.subjectIds.map((s) => (
                 <Badge key={s} tone="primary" className="px-3 py-1 text-sm">
